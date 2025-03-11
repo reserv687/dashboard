@@ -1,0 +1,227 @@
+@import "tailwindcss/base";
+@import "tailwindcss/components";
+@import "tailwindcss/utilities";
+
+@layer base {
+  :root {
+    --background: 0 0% 97%;
+    --foreground: 0 0% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 3.9%;
+    --primary: 221.2 83.2% 53.3%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 0 0% 96.1%;
+    --secondary-foreground: 0 0% 9%;
+    --muted: 0 0% 96.1%;
+    --muted-foreground: 0 0% 45.1%;
+    --accent: 0 0% 96.1%;
+    --accent-foreground: 0 0% 9%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 90%; /* تغيير القيمة إلى لون مطابق للخلفية */
+    --input: 0 0% 89.8%;
+    --ring: ;
+    --radius: 1.9rem;
+  }
+
+  /* إزالة الحدود من جميع العناصر */
+  * {
+    border-color: hsl(var(--border));
+  }
+  
+  /* إزالة الحدود من العناصر الشائعة */
+  input,
+  button,
+  textarea,
+  select,
+  div,
+  section {
+    border: non !important;
+    outline: non !important;
+  }
+
+
+  .dark {
+    --background: 0 0% 0%;
+    --foreground: 0 0% 98%;
+    --card: 0 0% 9%;
+    --card-foreground: 0 0% 98%;
+    --popover: 0 0% 3.9%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 221.2 83.2% 53.3%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 0 0% 14.9%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 0 0% 14.9%;
+    --muted-foreground: 0 0% 63.9%;
+    --accent: 0 0% 14.9%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 14.9%;
+    --input: 0 0% 14.9%;
+    --ring: 221.2 83.2% 53.3%;
+  }
+}
+
+/* تنسيقات عصرية لشريط التمرير */
+@layer utilities {
+  /* تصغير شريط التمرير وإبعاده عن الحواف */
+  ::-webkit-scrollbar {
+    width: 12px;  /* كان 12px */
+    height: 12px; /* كان 12px */
+  }
+
+  ::-webkit-scrollbar-track {
+    background: hsl(var(--muted));
+    border-radius: var(--radius);
+    margin: 21px; /* إضافة مسافة بين الشريط والحواف */
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--primary) / 0.8);
+    border-radius: var(--radius);
+    border: 2px solid hsl(var(--muted));
+  }
+
+  /* عند التحويم */
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--primary));
+  }
+
+  /* للوضع الداكن */
+  .dark ::-webkit-scrollbar-track {
+    background: hsl(var(--secondary));
+  }
+
+  .dark ::-webkit-scrollbar-thumb {
+    background: hsl(var(--primary) / 0.8);
+    border: 2px solid hsl(var(--secondary));
+  }
+
+  .dark ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--primary));
+  }
+}
+
+/* تحسين التباعد داخل العناصر القابلة للتمرير */
+.scrollable-container {
+  overflow: overlay;
+  padding-right: 12px;  /* يبعد المحتوى عن شريط التمرير */
+  padding-bottom: 12px; /* يبعد المحتوى عن شريط التمرير السفلي */
+  scroll-padding: 10px; /* يجعل التمرير يبدأ بعد مسافة */
+}
+
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* تخصيص المظهر للعربية */
+html[dir="rtl"] {
+  font-family: 'Noto Sans Arabic', sans-serif;
+}
+
+/* تخصيص مظهر زر التبديل */
+.theme-toggle-button {
+  @apply relative p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700;
+}
+
+.theme-toggle-button svg {
+  @apply h-5 w-5 transition-all;
+}
+
+/* تخصيص مظهر الأزرار */
+.btn-primary {
+  @apply bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors;
+}
+
+.btn-secondary {
+  @apply bg-secondary text-secondary-foreground px-4 py-2 rounded-lg hover:bg-secondary/90 transition-colors;
+}
+
+/* تخصيص مظهر الإدخال */
+.input {
+  @apply w-full p-3 rounded-lg border dark:border-gray-700 dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-primary;
+}
+
+/* Custom Styles */
+.bg-background {
+  background-color: hsl(var(--background));
+}
+
+.text-foreground {
+  color: hsl(var(--foreground));
+}
+
+.bg-card {
+  background-color: hsl(var(--card));
+}
+
+.text-card-foreground {
+  color: hsl(var(--card-foreground));
+}
+
+.bg-primary {
+  background-color: hsl(var(--primary));
+}
+
+.text-primary {
+  color: hsl(var(--primary));
+}
+
+.bg-destructive {
+  background-color: hsl(var(--destructive));
+}
+
+.text-destructive-foreground {
+  color: hsl(var(--destructive-foreground));
+}
+
+.text-muted-foreground {
+  color: hsl(var(--muted-foreground));
+}
+
+.hover\:bg-accent:hover {
+  background-color: hsl(var(--accent));
+}
+
+.hover\:bg-primary\/20:hover {
+  background-color: hsl(var(--primary) / 0.2);
+}
+
+.hover\:bg-destructive\/90:hover {
+  background-color: hsl(var(--destructive) / 0.9);
+}
+
+.bg-primary\/10 {
+  background-color: hsl(var(--primary) / 0.1);
+}
+
+.border-b {
+  border-bottom-width: 1px;
+  border-color: hsl(var(--border));
+}
+
+@keyframes float {
+  0% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+  100% {
+    transform: translateY(0px);
+  }
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
