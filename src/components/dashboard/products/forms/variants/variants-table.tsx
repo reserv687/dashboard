@@ -54,8 +54,8 @@ export function VariantsTable({ form, variants, onRemoveVariant }: VariantsTable
               <TableHead style={{ width: '200px' }}>التوليفة</TableHead>
               <TableHead style={{ width: '120px' }}>السعر</TableHead>
               <TableHead style={{ width: '120px' }}>المخزون</TableHead>
-              <TableHead style={{ width: '120px' }}>SKU</TableHead>
-              <TableHead style={{ width: '120px' }}>الباركود</TableHead>
+              <TableHead style={{ width: '150px' }}>SKU</TableHead>
+              <TableHead style={{ width: '150px' }}>QR Code</TableHead>
               <TableHead style={{ width: '150px' }}>الصورة</TableHead>
               <TableHead style={{ width: '100px' }}>الحالة</TableHead>
               <TableHead style={{ width: '70px' }}></TableHead>
@@ -110,41 +110,21 @@ export function VariantsTable({ form, variants, onRemoveVariant }: VariantsTable
                     )}
                   />
                 </TableCell>
-                <TableCell style={{ width: '120px' }}>
-                  <FormField
-                    control={form.control}
-                    name={`variants.${index}.sku`}
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormControl>
-                          <Input
-                            type="text"
-                            placeholder="SKU"
-                            {...field}
-                            className="h-8 w-24"
-                          />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
+                <TableCell style={{ width: '150px' }}>
+                  <div className="text-sm font-mono">
+                    {form.getValues(`variants.${index}.sku`) || 'يتم التوليد تلقائياً'}
+                  </div>
                 </TableCell>
-                <TableCell style={{ width: '120px' }}>
-                  <FormField
-                    control={form.control}
-                    name={`variants.${index}.barcode`}
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormControl>
-                          <Input
-                            type="text"
-                            placeholder="الباركود"
-                            {...field}
-                            className="h-8 w-24"
-                          />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
+                <TableCell style={{ width: '150px' }}>
+                  {form.getValues(`variants.${index}.qrCode`) && (
+                    <div className="relative w-20 h-20">
+                      <img 
+                        src={form.getValues(`variants.${index}.qrCode`)} 
+                        alt={`QR Code للمتغير ${index + 1}`}
+                        className="w-full h-full object-contain"
+                      />
+                    </div>
+                  )}
                 </TableCell>
                 <TableCell style={{ width: '150px' }}>
                   <FormField

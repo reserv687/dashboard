@@ -17,7 +17,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { DotsHorizontalIcon } from '@radix-ui/react-icons';
 import Link from 'next/link';
 import { toast } from 'react-hot-toast';
 import {
@@ -321,7 +320,6 @@ export default function OrdersPage() {
                           variant="ghost"
                           className="h-8 w-8 p-0"
                         >
-                          <DotsHorizontalIcon className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">

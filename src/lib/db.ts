@@ -129,19 +129,22 @@ mongoose.connection.on('connected', () => {
 
 mongoose.connection.on('error', (err) => {
   console.error('🔴 Mongoose connection error:', err);
-  // إعادة تعيين الاتصال عند حدوث خطأ
+  // إعادة تعيين الاتصال وتنظيف المستمعين عند حدوث خطأ
+  mongoose.connection.removeAllListeners();
   cached.conn = null;
   cached.promise = null;
 });
 
 mongoose.connection.on('disconnected', () => {
   console.log('🟡 Mongoose disconnected from MongoDB');
-  // إعادة تعيين الاتصال عند الانقطاع
+  // إعادة تعيين الاتصال وتنظيف المستمعين عند الانقطاع
+  mongoose.connection.removeAllListeners();
   cached.conn = null;
   cached.promise = null;
 });
 
 process.on('SIGINT', async () => {
+  mongoose.connection.removeAllListeners();
   await mongoose.connection.close();
   process.exit(0);
 });

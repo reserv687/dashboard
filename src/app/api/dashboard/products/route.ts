@@ -7,6 +7,7 @@ import slugify from 'slugify';
 import { hasPermission } from '@/lib/check-employee';
 import AuditLog from '@/models/audit-log.model';
 import { uploadToCloudinary } from '@/lib/cloudinary';
+import { getImageUrl } from '@/lib/image-loader';
 
 // تحويل النص العربي إلى slug آمن
 function createSafeSlug(text: string): string {
@@ -91,20 +92,54 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '10');
+    const productId = searchParams.get('id');
     const skip = (page - 1) * limit;
+
+    const transformProduct = (product: any) => ({
+      ...product,
+      images: product.images?.map((img: any) => ({
+        ...img,
+        url: getImageUrl(img.url)
+      })),
+      finalPrice: calculateFinalPrice(product.price, product.discount)
+    });
+
+    // إذا تم تحديد معرف منتج معين، نقوم بجلب تفاصيله الكاملة
+    if (productId) {
+      const product = await Product.findById(productId)
+        .populate('category', 'name')
+        .populate('brand', 'name')
+        .lean();
+
+      if (!product) {
+        return NextResponse.json({ error: 'المنتج غير موجود' }, { status: 404 });
+      }
+
+      return NextResponse.json({
+        product: transformProduct(product)
+      });
+    }
     
+    // في حالة عدم تحديد معرف، نجلب قائمة المنتجات
     const totalCount = await Product.countDocuments();
     const products = await Product.find()
       .populate('category', 'name')
+      .populate('brand', 'name')
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
       .lean();
-    const productsWithFinalPrice = products.map(p => ({ ...p, finalPrice: calculateFinalPrice(p.price, p.discount) }));
+
+    const transformedProducts = products.map(transformProduct);
     
     return NextResponse.json({
-      products: productsWithFinalPrice,
-      pagination: { total: totalCount, page, limit, pages: Math.ceil(totalCount / limit) }
+      products: transformedProducts,
+      pagination: { 
+        total: totalCount, 
+        page, 
+        limit, 
+        pages: Math.ceil(totalCount / limit) 
+      }
     });
   } catch (error: any) {
     console.error('خطأ في جلب المنتجات:', error);
@@ -198,6 +233,11 @@ export async function POST(req: NextRequest) {
       customContent: CustomContent[];
       attributes: any[];
       variants: any[];
+      returnPolicy: {
+        replacementPeriod: number;
+        refundPeriod: number;
+      };
+      isFeatured: boolean;
     }
 
     const productData: ProductData = {
@@ -240,22 +280,60 @@ export async function POST(req: NextRequest) {
           }))
         : [],
       attributes: productInfo.attributes || [],
-      variants: productInfo.variants || []
+      variants: productInfo.variants || [],
+      returnPolicy: {
+        replacementPeriod: Number(productInfo.returnPolicy?.replacementPeriod),
+        refundPeriod: Number(productInfo.returnPolicy?.refundPeriod)
+      },
+      isFeatured: Boolean(productInfo.isFeatured), // تأكد من تحويل القيمة إلى boolean
     };
+
+    console.log('Product featured status:', productData.isFeatured); // تتبع حالة المنتج المميز
+
+    // التحقق من صحة قيم سياسة الإرجاع
+    if (typeof productData.returnPolicy.replacementPeriod !== 'number' || 
+        typeof productData.returnPolicy.refundPeriod !== 'number') {
+      return NextResponse.json({ 
+        error: 'قيم مدد الاسترجاع والاستبدال غير صحيحة' 
+      }, { status: 400 });
+    }
 
     console.log('Technical Specs being saved:', productData.technicalSpecs);
     console.log('Custom content before save:', productData.customContent);
     console.log('Prepared product data:', productData);
+    console.log('Return policy data before save:', productData.returnPolicy);
+
+    // Validate images before saving
+    if (productData.images?.length) {
+      // Filter out any invalid image URLs
+      productData.images = productData.images.filter(img => {
+        try {
+          new URL(img.url);
+          return true;
+        } catch {
+          console.warn('Invalid image URL detected:', img.url);
+          return false;
+        }
+      });
+    }
 
     // إنشاء المنتج
     const product = new Product(productData);
     await product.save();
 
-    // جلب المنتج مع البيانات المرتبطة
+    // جلب المنتج مع البيانات المرتبطة وتحويل الصور
     const populatedProduct = await Product.findById(product._id)
       .populate('category', 'name')
       .populate('brand', 'name')
       .lean();
+
+    // Transform image URLs to ensure they're properly formatted
+    if (populatedProduct?.images?.length) {
+      populatedProduct.images = populatedProduct.images.map(img => ({
+        ...img,
+        url: img.url.startsWith('http') ? img.url : `https://${img.url}`
+      }));
+    }
 
     return NextResponse.json({ 
       success: true,
@@ -377,6 +455,51 @@ export async function PUT(req: NextRequest) {
       console.log('Updating custom content:', data.customContent);
     }
 
+    if (data.status && !['draft', 'published', 'archived'].includes(data.status)) {
+      return NextResponse.json({ error: 'قيمة الحالة غير صالحة. القيم المسموح بها هي: draft, published, archived' }, { status: 400 });
+    }
+
+    if (data.returnPolicy) {
+      // التأكد من أن القيم رقمية
+      const replacementPeriod = Number(data.returnPolicy.replacementPeriod);
+      const refundPeriod = Number(data.returnPolicy.refundPeriod);
+
+      if (isNaN(replacementPeriod) || isNaN(refundPeriod)) {
+        return NextResponse.json({ 
+          error: 'قيم مدد الاسترجاع والاستبدال غير صحيحة' 
+        }, { status: 400 });
+      }
+
+      data.returnPolicy = {
+        replacementPeriod,
+        refundPeriod
+      };
+
+      console.log('Updating return policy with values:', data.returnPolicy);
+    }
+
+    // Validate and transform images
+    if (data.images?.length) {
+      data.images = data.images.filter(img => {
+        try {
+          new URL(img.url);
+          return true;
+        } catch {
+          console.warn('Invalid image URL detected:', img.url);
+          return false;
+        }
+      }).map(img => ({
+        ...img,
+        url: img.url.startsWith('http') ? img.url : `https://${img.url}`
+      }));
+    }
+
+    // تحديث حالة المنتج المميز
+    if ('isFeatured' in data) {
+      data.isFeatured = Boolean(data.isFeatured);
+      console.log('Updating featured status:', data.isFeatured);
+    }
+
     const existingData = await Product.findById(productId).lean();
     const updatedProduct = await Product.findByIdAndUpdate(productId, { $set: data }, { 
       new: true, 
@@ -420,7 +543,11 @@ export async function PUT(req: NextRequest) {
           ...updatedProduct,
           sku: (updatedProduct as any).sku,
           serialNumber: (updatedProduct as any).serialNumber,
-          qrCode: (updatedProduct as any).qrCode
+          qrCode: (updatedProduct as any).qrCode,
+          images: updatedProduct?.images?.map(img => ({
+            ...img,
+            url: img.url.startsWith('http') ? img.url : `https://${img.url}`
+          }))
     });
   } catch (error: any) {
     console.error('PUT /api/dashboard/products - Error:', error);

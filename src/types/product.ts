@@ -50,8 +50,8 @@ export interface ProductVariant {
   combination: Record<string, string>;
   price: number;
   stock: number;
-  sku?: string;
-  barcode?: string;
+  sku: string;      // Make required
+  qrCode: string;   // Make required
   image?: ImageType;
   isActive: boolean;
 }
@@ -90,14 +90,14 @@ export interface IProduct extends Document {
     value?: number;
   } & DateRange;
   userId: string;
-  isFeatured?: boolean;
-  featuredBadgeText?: string;
-  featuredBadgeColor?: string;
-  featuredStartDate?: Date;
-  featuredEndDate?: Date;
+  isFeatured: boolean;
   createdAt: Date;
   updatedAt: Date;
   customFields?: CustomField[];
+  returnPolicy: {
+    replacementPeriod: number;  // مدة الاستبدال بالأيام
+    refundPeriod: number;       // مدة الاسترجاع بالأيام
+  };
 }
 
 // واجهة لحالة التحقق من المنتج

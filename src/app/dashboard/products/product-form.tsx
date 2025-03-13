@@ -11,12 +11,14 @@ import { ImagesForm } from '@/components/dashboard/products/forms/images-form';
 import { CustomContentForm } from '@/components/dashboard/products/forms/custom-content-form';
 import { DiscountForm } from '@/components/dashboard/products/forms/discount-form';
 import { ProductOptionsForm } from '@/components/dashboard/products/forms/variants-form';
+import { ReturnPolicyForm } from '@/components/dashboard/products/forms/return-policy-form';  // Add this import
 
 const formSteps = [
   { id: 'basic-info', label: 'المعلومات الأساسية' },
   { id: 'options', label: 'خيارات المنتج' },
   { id: 'technical-specs', label: 'المواصفات الفنية' },
   { id: 'images', label: 'الصور' },
+  { id: 'return-policy', label: 'سياسة الاسترجاع' }, // إضافة خطوة جديدة
   { id: 'discounts', label: 'الخصومات' },
   { id: 'custom-content', label: 'المحتوى الإضافي' }
 ] as const;
@@ -34,27 +36,47 @@ export function ProductForm({ initialData, onSave, onCancel, isSubmitting }: Pro
   const [currentStep, setCurrentStep] = useState<FormStep>('basic-info');
   const [completedSteps, setCompletedSteps] = useState<Set<FormStep>>(new Set());
   const [formData, setFormData] = useState({
-    'basic-info': initialData ? {
-      name: initialData.name,
-      description: initialData.description,
-      price: initialData.price,
-      stock: initialData.stock,
-      category: initialData.category?._id || initialData.category,
-      brand: initialData.brand,
-      countryOfOrigin: initialData.countryOfOrigin
-    } : {},
-    'options': initialData ? {
-      attributes: initialData.attributes || [],
-      variants: initialData.variants || []
-    } : {},
-    'technical-specs': initialData ? {
-      technicalSpecs: initialData.technicalSpecs || {},
-      dimensions: initialData.dimensions || {},
-      weight: initialData.weight || {}
-    } : { technicalSpecs: {}, dimensions: {}, weight: {} },
-    'images': initialData ? { images: initialData.images || [] } : {},
-    'discounts': initialData ? { discount: initialData.discount || {} } : {},
-    'custom-content': initialData ? { customContent: initialData.customContent || [] } : { customContent: [] }
+    'basic-info': {
+      name: initialData?.name || '',
+      description: initialData?.description || '',
+      price: initialData?.price || 0,
+      stock: initialData?.stock || 0,
+      category: initialData?.category?._id || initialData?.category || '',
+      brand: initialData?.brand?._id || initialData?.brand || '',
+      countryOfOrigin: initialData?.countryOfOrigin || '',
+      sku: initialData?.sku || '',
+      customFields: initialData?.customFields || []
+    },
+    'options': {
+      attributes: initialData?.attributes || [],
+      variants: initialData?.variants || []
+    },
+    'technical-specs': {
+      dimensions: initialData?.technicalSpecs?.dimensions || {},
+      weight: initialData?.technicalSpecs?.weight || {},
+      specifications: initialData?.technicalSpecs?.specifications || {}
+    },
+    'images': {
+      images: initialData?.images || []
+    },
+    'return-policy': {
+      returnPolicy: initialData?.returnPolicy || {
+        replacementPeriod: 7,
+        refundPeriod: 14
+      }
+    },
+    'discounts': {
+      discount: initialData?.discount || {
+        isActive: false,
+        type: 'percentage',
+        value: 0,
+        startDate: null,
+        endDate: null
+      }
+    },
+    'custom-content': {
+      customContent: initialData?.customContent || []
+    }
   });
 
   const canCompleteStep = (step: FormStep, data: any) => {
@@ -134,6 +156,36 @@ export function ProductForm({ initialData, onSave, onCancel, isSubmitting }: Pro
     if (f) f.requestSubmit();
   };
 
+  const handleSave = async (status: 'draft' | 'published') => {
+    const basicInfo = formData['basic-info'];
+    
+    const flattenedData = {
+      ...initialData, // Keep existing data
+      _id: initialData?._id, // Preserve ID for updates
+      name: basicInfo.name,
+      description: basicInfo.description,
+      price: Number(basicInfo.price || 0),
+      stock: Number(basicInfo.stock || 0),
+      brand: basicInfo.brand || null,
+      category: basicInfo.category || null,
+      countryOfOrigin: basicInfo.countryOfOrigin || null,
+      sku: basicInfo.sku || null,
+      technicalSpecs: formData['technical-specs'],
+      images: formData['images'].images,
+      discount: formData['discounts'].discount,
+      customContent: formData['custom-content'].customContent,
+      attributes: formData['options'].attributes,
+      variants: formData['options'].variants,
+      customFields: basicInfo.customFields || [],
+      returnPolicy: formData['return-policy'].returnPolicy,
+      status,
+      isFeatured: basicInfo.isFeatured, // تأكد من تضمين الحالة المميزة
+    };
+
+    console.log('Saving product with featured status:', basicInfo.isFeatured);
+    await onSave(flattenedData, status);
+  };
+
   const renderForm = () => {
     const props = {
       isSubmitting,
@@ -149,6 +201,14 @@ export function ProductForm({ initialData, onSave, onCancel, isSubmitting }: Pro
         return <TechnicalSpecsForm data={formData['technical-specs']} onComplete={(d) => handleStepComplete('technical-specs', d)} {...props} />;
       case 'images':
         return <ImagesForm data={formData['images']} onComplete={(d) => handleStepComplete('images', d)} {...props} />;
+      case 'return-policy':
+        return (
+          <ReturnPolicyForm
+            data={formData['return-policy'].returnPolicy}
+            onComplete={(d) => handleStepComplete('return-policy', { returnPolicy: d })}
+            {...props}
+          />
+        );
       case 'discounts':
         return (
           <DiscountForm
@@ -198,83 +258,10 @@ export function ProductForm({ initialData, onSave, onCancel, isSubmitting }: Pro
 
         {currentStep === formSteps[formSteps.length - 1].id ? (
           <div className="flex gap-2">
-            <Button onClick={() => {
-              // Extract basic info data from status if needed
-              const basicInfo = formData['basic-info'];
-              
-              // إذا كنا في قسم المحتوى المخصص، نقوم بالحصول على البيانات مباشرة من النموذج
-              let customContentData = formData['custom-content']?.customContent || [];
-              if (currentStep === 'custom-content' && typeof window.customContentFormSubmit === 'function') {
-                // استخدام الدالة التي أضفناها للحصول على بيانات المحتوى المخصص مباشرة
-                customContentData = window.customContentFormSubmit();
-              }
-              
-              const flattenedData = {
-                name: basicInfo.name,
-                description: basicInfo.description,
-                price: Number(basicInfo.price || 0),
-                stock: Number(basicInfo.stock || 0),
-                brand: basicInfo.brand || null,
-                category: basicInfo.category || null,
-                countryOfOrigin: basicInfo.countryOfOrigin || null,
-                technicalSpecs: {
-                  dimensions: formData['technical-specs']?.dimensions || {},
-                  weight: formData['technical-specs']?.weight || {},
-                  specifications: formData['technical-specs']?.specifications || {}
-                },
-                images: formData['images']?.images || [],
-                discount: formData['discounts']?.discount || {
-                  isActive: false,
-                  type: 'percentage',
-                  value: 0
-                },
-                customContent: customContentData,
-                attributes: formData['options']?.attributes || [],
-                variants: formData['options']?.variants || [],
-                customFields: (basicInfo as any).customFields || [],
-                status: 'draft'
-              };
-              onSave(flattenedData, 'draft');
-            }} disabled={isSubmitting}>
+            <Button onClick={() => handleSave('draft')} disabled={isSubmitting}>
               حفظ كمسودة
             </Button>
-            <Button onClick={() => {
-              const basicInfo = formData['basic-info'];
-              
-              // إذا كنا في قسم المحتوى المخصص، نقوم بالحصول على البيانات مباشرة من النموذج
-              let customContentData = formData['custom-content']?.customContent || [];
-              if (currentStep === 'custom-content' && typeof window.customContentFormSubmit === 'function') {
-                // استخدام الدالة التي أضفناها للحصول على بيانات المحتوى المخصص مباشرة
-                customContentData = window.customContentFormSubmit();
-              }
-              
-              const flattenedData = {
-                name: basicInfo.name,
-                description: basicInfo.description,
-                price: Number(basicInfo.price || 0),
-                stock: Number(basicInfo.stock || 0),
-                brand: basicInfo.brand || null,
-                category: basicInfo.category || null,
-                countryOfOrigin: basicInfo.countryOfOrigin || null,
-                technicalSpecs: {
-                  dimensions: formData['technical-specs']?.dimensions || {},
-                  weight: formData['technical-specs']?.weight || {},
-                  specifications: formData['technical-specs']?.specifications || {}
-                },
-                images: formData['images']?.images || [],
-                discount: formData['discounts']?.discount || {
-                  isActive: false,
-                  type: 'percentage',
-                  value: 0
-                },
-                customContent: customContentData,
-                attributes: formData['options']?.attributes || [],
-                variants: formData['options']?.variants || [],
-                customFields: (basicInfo as any).customFields || [],
-                status: 'published'
-              };
-              onSave(flattenedData, 'published');
-            }} disabled={isSubmitting}>
+            <Button onClick={() => handleSave('published')} disabled={isSubmitting}>
               {initialData ? 'تحديث المنتج' : 'نشر المنتج'}
             </Button>
           </div>

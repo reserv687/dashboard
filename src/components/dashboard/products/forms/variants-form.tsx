@@ -28,8 +28,8 @@ const variantSchema = z.object({
   combination: z.record(z.string()),
   price: z.coerce.number().min(0, 'السعر يجب أن يكون أكبر من أو يساوي 0'),
   stock: z.coerce.number().min(0, 'المخزون يجب أن يكون أكبر من أو يساوي 0'),
-  sku: z.string().optional().default(''),
-  barcode: z.string().optional().default(''),
+  sku: z.string().optional(),       // Make optional as it's generated server-side
+  qrCode: z.string().optional(),    // Make optional as it's generated server-side
   image: z.object({ url: z.string(), alt: z.string() }).optional().nullable(),
   isActive: z.boolean().default(true)
 });

@@ -1,6 +1,7 @@
 import { Schema, model, models } from 'mongoose';
 import type { IProduct } from '@/types/product';
 import QRCode from 'qrcode';
+import { SKUGenerator } from '@/lib/sku-generator';
 
 const schemaDefaults = {
   str: { type: String },
@@ -15,6 +16,25 @@ const imageFields = {
   url: schemaDefaults.reqStr,
   alt: schemaDefaults.reqStr
 };
+
+// Add these helper functions before the schema definitions
+async function generateVariantSKU(productSKU: string, variantIndex: number, combination: Record<string, string>): Promise<string> {
+  return SKUGenerator.generateVariantSKU(productSKU, combination, variantIndex);
+}
+
+async function generateVariantQRCode(sku: string): Promise<string> {
+  try {
+    const data = JSON.stringify({
+      sku,
+      type: 'variant',
+      timestamp: new Date().toISOString()
+    });
+    return await QRCode.toDataURL(data);
+  } catch (err) {
+    console.error('Error generating variant QR code:', err);
+    return '';
+  }
+}
 
 const schemas = {
   image: new Schema(imageFields, schemaDefaults.opts),
@@ -33,8 +53,13 @@ const schemas = {
     combination: { type: Map, of: String },
     price: schemaDefaults.reqNum,
     stock: schemaDefaults.reqNum,
-    sku: schemaDefaults.str,
-    barcode: schemaDefaults.str,
+    sku: { 
+      type: String,
+      unique: true,
+      sparse: true,
+      index: true
+    },
+    qrCode: { type: String },
     image: {
       url: schemaDefaults.str,
       alt: schemaDefaults.str
@@ -94,7 +119,7 @@ const productSchema = new Schema<IProduct>({
       length: { type: Number, default: 0 },
       width: { type: Number, default: 0 },
       height: { type: Number, default: 0 },
-      unit: { type: String, enum: ['cm', 'mm', 'm', 'inch'], default: 'cm' }
+      unit: { type: String, enum: ['cm', 'mm', 'meter', 'inch', 'm'], default: 'cm' }
     },
     weight: {
       value: { type: Number, default: 0 },
@@ -115,11 +140,7 @@ const productSchema = new Schema<IProduct>({
     endDate: Date
   }, { _id: false }),
   userId: { type: String, required: true },
-  isFeatured: schemaDefaults.bool,
-  featuredBadgeText: schemaDefaults.str,
-  featuredBadgeColor: schemaDefaults.str,
-  featuredStartDate: Date,
-  featuredEndDate: Date,
+  isFeatured: { type: Boolean, default: false },
   sku: { 
     type: String, 
     unique: true, 
@@ -137,8 +158,15 @@ const productSchema = new Schema<IProduct>({
   customFields: [{
     label: { type: String, required: true },
     value: { type: String, required: true }
-  }]
+  }],
+  returnPolicy: {
+    replacementPeriod: { type: Number, default: 7 },  // 7 أيام كقيمة افتراضية
+    refundPeriod: { type: Number, default: 14 },      // 14 يوم كقيمة افتراضية
+  }
 }, { timestamps: true });
+
+// يمكن إضافة مؤشر لتحسين الأداء في البحث عن المنتجات المميزة
+productSchema.index({ isFeatured: 1 });
 
 productSchema.methods.calculateFinalPrice = function() {
   if (!this.discount?.isActive || !this.discount.type || !this.discount.value || !this.price) {
@@ -156,13 +184,12 @@ productSchema.methods.calculateFinalPrice = function() {
 
 // دالة لإنشاء SKU فريد
 async function generateSKU(doc: any): Promise<string> {
-  const prefix = doc.name.substring(0, 2).toUpperCase();
-  const categoryPrefix = doc.category ? 
-    (await models.Category.findById(doc.category))?.name?.substring(0, 2).toUpperCase() || 'XX' : 
-    'XX';
-  const count = await models.Product.countDocuments();
-  const number = (count + 1).toString().padStart(6, '0');
-  return `${prefix}-${categoryPrefix}-${number}`;
+  const categoryName = doc.category ? 
+    (await models.Category.findById(doc.category))?.name : null;
+  
+  return SKUGenerator.generateProductSKU(doc.name, {
+    categoryCode: categoryName ? categoryName.replace(/[^a-zA-Z0-9]/g, '').toUpperCase() : 'XX'
+  });
 }
 
 // دالة لإنشاء رقم تسلسلي فريد
@@ -202,6 +229,26 @@ productSchema.pre('save', async function(next) {
     // توليد QR code جديد في كل مرة يتم فيها تغيير SKU أو Serial Number
     if (this.isNew || this.isModified('sku') || this.isModified('serialNumber')) {
       this.qrCode = await generateQRCode(this.sku, this.serialNumber);
+    }
+
+    // Generate SKUs and QR codes for variants
+    if (this.variants && Array.isArray(this.variants)) {
+      const handledSKUs = new Set(); // Track SKUs to ensure uniqueness
+
+      for (let i = 0; i < this.variants.length; i++) {
+        const variant = this.variants[i];
+        
+        if (!variant.sku || !await SKUGenerator.validateSKU(variant.sku)) {
+          variant.sku = await generateVariantSKU(this.sku, i, variant.combination);
+        }
+
+        if (handledSKUs.has(variant.sku)) {
+          throw new Error(`SKU مكرر للمتغير: ${variant.sku}`);
+        }
+        handledSKUs.add(variant.sku);
+
+        variant.qrCode = await generateVariantQRCode(variant.sku);
+      }
     }
 
     next();

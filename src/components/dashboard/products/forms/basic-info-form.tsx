@@ -22,6 +22,8 @@ import { CountrySelect } from '@/components/dashboard/brands/country-select';
 import { NumberInput } from '@/components/ui/number-input';
 import * as z from 'zod';
 import { useEffect, useState } from 'react';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 
 const basicInfoSchema = z.object({
   name: z.string()
@@ -49,6 +51,7 @@ const basicInfoSchema = z.object({
       value: z.string().min(1, 'قيمة الحقل مطلوبة')
     })
   ).optional(),
+  isFeatured: z.boolean().default(false),
 });
 
 type BasicInfoFormValues = z.infer<typeof basicInfoSchema>;
@@ -77,7 +80,8 @@ export function BasicInfoForm({
       brand: data?.brand || '',
       countryOfOrigin: data?.countryOfOrigin || '',
       sku: data?.sku || '',
-      customFields: data?.customFields || []
+      customFields: data?.customFields || [],
+      isFeatured: data?.isFeatured || false
     }
   });
 
@@ -131,6 +135,7 @@ export function BasicInfoForm({
   };
 
   const onSubmit = (values: BasicInfoFormValues) => {
+    console.log('BasicInfoForm - Is Featured:', values.isFeatured);
     console.log('BasicInfoForm - Form submitted with values:', values);
     onComplete(values);
   };
@@ -318,6 +323,32 @@ export function BasicInfoForm({
             </FormItem>
           )}
         />
+
+        <div className="flex items-center justify-between p-4 border rounded-lg">
+          <div>
+            <Label className="text-base font-medium">منتج مميز</Label>
+            <p className="text-sm text-muted-foreground">
+              تفعيل هذا الخيار سيجعل المنتج يظهر في قسم المنتجات المميزة
+            </p>
+          </div>
+          <FormField
+            control={form.control}
+            name="isFeatured"
+            render={({ field }) => (
+              <FormItem>
+                <FormControl>
+                  <Switch
+                    checked={field.value}
+                    onCheckedChange={(checked) => {
+                      field.onChange(checked);
+                      console.log('Switch changed to:', checked);
+                    }}
+                  />
+                </FormControl>
+              </FormItem>
+            )}
+          />
+        </div>
 
         <div className="space-y-4">
           <div className="flex justify-between items-center">
