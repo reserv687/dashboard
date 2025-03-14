@@ -306,6 +306,6 @@ export function DiscountForm({ data = {}, onComplete, productPrice = 0 }: Discou
 // Add TypeScript interface for the global window object
 declare global {
   interface Window {
-    discountFormSubmit: () => { discount: { isActive: boolean; type: string; value: number; startDate?: Date; endDate?: Date } };
+    discountFormSubmit?: () => { discount: { isActive: boolean; type: string; value: number; startDate?: Date; endDate?: Date } };
   }
 }

@@ -3,13 +3,13 @@
 import { UseFormReturn } from 'react-hook-form';
 import { Button } from '@/components/ui/button';
 import { FormControl, FormField, FormItem } from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Trash2 } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { NumberInput } from '@/components/ui/number-input';
 import { ImageUpload } from '@/components/dashboard/image-upload';
+import Image from 'next/image';
 
 import type { ProductOptionsFormValues } from '../variants-form';
 
@@ -118,10 +118,12 @@ export function VariantsTable({ form, variants, onRemoveVariant }: VariantsTable
                 <TableCell style={{ width: '150px' }}>
                   {form.getValues(`variants.${index}.qrCode`) && (
                     <div className="relative w-20 h-20">
-                      <img 
-                        src={form.getValues(`variants.${index}.qrCode`)} 
+                      <Image 
+                        src={form.getValues(`variants.${index}.qrCode`) || ''}
                         alt={`QR Code للمتغير ${index + 1}`}
-                        className="w-full h-full object-contain"
+                        className="object-contain"
+                        fill
+                        sizes="(max-width: 80px) 100vw, 80px"
                       />
                     </div>
                   )}

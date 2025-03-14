@@ -45,7 +45,8 @@ export function ProductForm({ initialData, onSave, onCancel, isSubmitting }: Pro
       brand: initialData?.brand?._id || initialData?.brand || '',
       countryOfOrigin: initialData?.countryOfOrigin || '',
       sku: initialData?.sku || '',
-      customFields: initialData?.customFields || []
+      customFields: initialData?.customFields || [],
+      isFeatured: initialData?.isFeatured || false
     },
     'options': {
       attributes: initialData?.attributes || [],
